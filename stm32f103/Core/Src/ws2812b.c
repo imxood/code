@@ -78,7 +78,7 @@ void run(osSemaphoreId ledCtrlSemHandle) {
 			case 0:
 				break;
 			case 1:
-				colorWipe(Color(0, 0, 0), 5);
+				colorWipe(Color(255, 255, 255), 5);
 				break;
 			case 2:
 				colorWipe(Color(255, 0, 0), 5);
@@ -108,11 +108,14 @@ void run(osSemaphoreId ledCtrlSemHandle) {
 //
 //		rainbow(20);			 //彩虹
 //		rainbowCycle(20);		 //循环
-//		theaterChaseRainbow(50); //呼吸�??
+//		theaterChaseRainbow(50); //呼吸灯
 
 	}
 }
 
+// 设置一个灯的颜色, G.R.B, 有3个字节, 共24个bit, 把这24个bit, 按G,R,B的顺序, 且每种颜色有高位到低位, 取出每一位,
+// 为0则为WS2812_0, 为1则为WS2812_1, 得出的24个WS2812编码值, 即为timer的24个输出Pulse值
+// 由此输出24个脉冲, timer的计数频率是:72Mhz / 90 = 800Khz, 则每一个脉冲间隔是1.25us, 就这样实现WS2812的脉冲调制
 void SetPixelColor(uint16_t n, uint32_t color) {
 
 	uint8_t r = (uint8_t) (color >> 16);
@@ -122,17 +125,16 @@ void SetPixelColor(uint16_t n, uint32_t color) {
 	uint8_t tempBuffer[24];
 	uint8_t i;
 
-	for (i = 0; i < 8; i++) // GREEN
+	for (i = 0; i < 8; i++) // G
 		tempBuffer[i] = ((g << i) & 0x80) ? WS2812_1 : WS2812_0;
 
-	for (i = 0; i < 8; i++) // RED
+	for (i = 0; i < 8; i++) // R
 		tempBuffer[8 + i] = ((r << i) & 0x80) ? WS2812_1 : WS2812_0;
 
-	for (i = 0; i < 8; i++) // BLUE
+	for (i = 0; i < 8; i++) // B
 		tempBuffer[16 + i] = ((b << i) & 0x80) ? WS2812_1 : WS2812_0;
 
-	for (i = 0; i < 24; i++)
-		ColorBuffer[RESET_SLOTS_BEGIN + n * 24 + i] = tempBuffer[i];
+	memcpy(RESET_SLOTS_BEGIN + n * 24, tempBuffer, 24);
 
 }
 
