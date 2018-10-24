@@ -19,6 +19,13 @@
 #define WS2812_1					(TIMER_PERIOD * 2 / 3)
 #define WS2812_RESET				(0)
 
+typedef struct _Color {
+	uint8_t r;
+	uint8_t g;
+	uint8_t b;
+	uint8_t a;
+} Color;
+
 // ws2812 模块的外设使能初始化
 void ws2812_init();
 
@@ -36,22 +43,22 @@ void WS2812_Update();
  * 返 回 值 : none
  *************************************************************/
 
-void SetPixelColor(uint16_t n, uint32_t c);
+void SetPixelColor(uint16_t n, Color color);
 
 // Fill the dots one after the other with a color
-void colorWipe(uint32_t c, uint8_t wait);
+void colorWipe(Color color, uint8_t wait);
 
 void PixelUpdate();
 
-uint32_t Color(uint8_t r, uint8_t g, uint8_t b);
+//uint32_t Color(uint8_t r, uint8_t g, uint8_t b);
 
-uint32_t Wheel(uint8_t WheelPos);
+Color Wheel(uint8_t WheelPos);
 
 //彩虹
 void rainbow(uint8_t wait);
 
 //Theatre-style crawling lights.呼吸灯
-void theaterChase(uint32_t c, uint8_t wait);
+void theaterChase(Color color, uint8_t wait);
 
 // Slightly different, this makes the rainbow equally distributed throughout
 void rainbowCycle(uint8_t wait);
@@ -60,5 +67,13 @@ void rainbowCycle(uint8_t wait);
 void theaterChaseRainbow(uint8_t wait);
 
 void ledControlRequest();
+
+Color ToColor(uint8_t r, uint8_t g, uint8_t b);
+
+Color ToColorA(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
+
+void RGB2HSL(Color color, double *h, double *l, double *s);
+
+void HSL2RGB(double h, double l, double s, Color* color);
 
 #endif /* __WS2812B_H */
