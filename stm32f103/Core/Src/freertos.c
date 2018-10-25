@@ -144,7 +144,7 @@ void startLedSchedule(void const * argument)
 
   /* USER CODE BEGIN startLedSchedule */
 	/* Infinite loop */
-	run(ledCtrlSemHandle);
+	run();
   /* USER CODE END startLedSchedule */
 }
 

@@ -7,6 +7,8 @@
 
 #define CommandLen 5
 
+extern osSemaphoreId ledCtrlSemHandle;
+
 volatile uint8_t ColorBuffer[LED_BUFFER_SIZE];
 volatile uint8_t CommandBuffer[CommandLen];
 
@@ -24,7 +26,7 @@ void ws2812_init() {
 	// DMA1 Channel4
 	LL_DMA_SetPeriphAddress(DMA1, LL_DMA_CHANNEL_4, (uint32_t) (&TIM4->CCR2)); // 设置外设地址
 	LL_DMA_SetMemoryAddress(DMA1, LL_DMA_CHANNEL_4, (uint32_t) ColorBuffer); // 设置DMA的数据地址
-	LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_4, LED_BUFFER_SIZE);// 设置DMA的数据长度
+	LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_4, LED_BUFFER_SIZE); // 设置DMA的数据长度
 
 	// USART1
 	LL_USART_EnableDMAReq_RX(USART1); // 允许DMA请求
@@ -39,14 +41,119 @@ void ws2812_init() {
 	LL_DMA_EnableChannel(DMA1, LL_DMA_CHANNEL_5);
 }
 
+void ledControlRequest(void) {
+	if (LL_USART_IsActiveFlag_IDLE(USART1)) {
+
+		uint8_t len = LL_DMA_GetDataLength(DMA1, LL_DMA_CHANNEL_5);
+		if (len == 0) {
+			//
+			if (CommandBuffer[0] == 0xff && CommandBuffer[1] == 0xff
+					&& CommandBuffer[3] == 0x0d && CommandBuffer[4] == 0x0a) {
+				// memcpy((void *)Command, (void *)CommandBuffer, CommandLen);
+				LedType = CommandBuffer[2];
+				cmdReceived = 1; // 接收到控制命令
+			}
+		}
+
+		// reset the number of data to transfer
+		LL_DMA_DisableChannel(DMA1, LL_DMA_CHANNEL_5);
+		LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_5, CommandLen);
+		LL_DMA_EnableChannel(DMA1, LL_DMA_CHANNEL_5);
+
+		LL_USART_ClearFlag_IDLE(USART1);
+	}
+}
+
+void run() {
+
+	ws2812_init();
+
+	colorWipe(ToColor(255, 0, 0), 500);
+
+	while (1) {
+		//		osSemaphoreWait(ledCtrlSemHandle, portMAX_DELAY);
+
+		if (cmdReceived == 1) {
+
+			cmdReceived = 0;
+
+			switch (LedType) {
+			// 0, 白灯微闪烁  1, 白灯  2, 红灯  3, 绿灯  4, 蓝灯
+			case 0:
+				white_gradient(500);
+				break;
+			case 1:
+				colorWipe(ToColor(255, 255, 255), 5);
+				break;
+			case 2:
+				colorWipe(ToColor(255, 0, 0), 5);
+				break;
+			case 3:
+				colorWipe(ToColor(0, 255, 0), 5);
+				break;
+			case 4:
+				colorWipe(ToColor(0, 0, 255), 5);
+				break;
+			case 5:
+				break;
+			}
+		} else {
+			osDelay(100);
+		}
+
+		//		osSemaphoreRelease(ledCtrlSemHandle);
+	}
+}
+
+void white_gradient(uint8_t wait) {
+
+	const uint8_t DELTA_MIN = 0, DELTA_MAX = 100; // 亮度变化的范围: DELTA_MIN ~ DELTA_MAX
+
+	uint8_t alpha = 100, direction = 0; // 初始亮度: 100  亮度方向: 增加
+
+	uint16_t delta = 0;						// 初始亮度的变化值
+	Color colora = { 255, 255, 255, 100 };	// 初始颜色
+	Color color;
+
+	while (!cmdReceived) { // j 控制每次亮度的范围
+		colora.a = alpha - delta;
+		color = ColorA2Color(colora);
+
+		colorWipe(color, 5);
+
+		direction ? delta-- : delta++;
+
+		if (direction) {
+			if (delta == DELTA_MAX) {
+				direction = !direction;
+			}
+		} else {
+			if (delta == DELTA_MIN) {
+				direction = !direction;
+			}
+		}
+		osDelay(wait);
+	}
+}
+
 Color ToColor(uint8_t r, uint8_t g, uint8_t b) {
-	Color color = {r, g, b, 100};
+	Color color = { r, g, b, 100 };
 	return color;
 }
 
 Color ToColorA(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
-	Color color = {r, g, b, a};
+	Color color = { r, g, b, a };
 	return color;
+}
+
+Color ColorA2Color(Color colora) {
+	// Hue 色度, Lightness 亮度, Saturation 饱和度。
+	double h, l, s;
+	RGB2HSL(colora, &h, &l, &s);
+	l = (double) colora.a / 100 * l; // 新的透明度是原来透明度的百分比例
+	HSL2RGB(h, l, s, &colora);
+	colora.a = 100;
+	return colora;
 }
 
 void RGB2HSL(Color color, double *h, double *l, double *s) {
@@ -101,82 +208,25 @@ void HSL2RGB(double h, double l, double s, Color* color) {
 	}
 }
 
-void ledControlRequest(void) {
-	if (LL_USART_IsActiveFlag_IDLE(USART1)) {
-
-		uint8_t len = LL_DMA_GetDataLength(DMA1, LL_DMA_CHANNEL_5);
-		if (len == 0) {
-			//
-			if (CommandBuffer[0] == 0xff && CommandBuffer[1] == 0xff
-					&& CommandBuffer[3] == 0x0d && CommandBuffer[4] == 0x0a) {
-				// memcpy((void *)Command, (void *)CommandBuffer, CommandLen);
-				LedType = CommandBuffer[2];
-				cmdReceived = 1; // 接收到控制命令
-			}
-		}
-
-		// reset the number of data to transfer
-		LL_DMA_DisableChannel(DMA1, LL_DMA_CHANNEL_5);
-		LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_5, CommandLen);
-		LL_DMA_EnableChannel(DMA1, LL_DMA_CHANNEL_5);
-
-		LL_USART_ClearFlag_IDLE(USART1);
-	}
-}
-
-void run(osSemaphoreId ledCtrlSemHandle) {
-
-	ws2812_init();
-
-	colorWipe(ToColor(255, 0, 0), 500);
-
-	while (1) {
-		//		osSemaphoreWait(ledCtrlSemHandle, portMAX_DELAY);
-
-		if (cmdReceived == 1) {
-
-			switch (LedType) {
-			// 0, 白灯微闪烁  1, 白灯  2, 红灯  3, 绿灯  4, 蓝灯
-			case 0:
-				break;
-			case 1:
-				colorWipe(ToColor(255, 255, 255), 5);
-				break;
-			case 2:
-				colorWipe(ToColor(255, 0, 0), 5);
-				break;
-			case 3:
-				colorWipe(ToColor(0, 255, 0), 5);
-				break;
-			case 4:
-				colorWipe(ToColor(0, 0, 255), 5);
-				break;
-			case 5:
-				break;
-			}
-
-			cmdReceived = 0;
-		} else {
-			osDelay(50);
-		}
-
-		//		osSemaphoreRelease(ledCtrlSemHandle);
-
-		// Send a theater pixel chase in...
-		//		theaterChase(Color(127, 127, 127), 50); // White
-		//		theaterChase(Color(127, 0, 0), 50);		// Red
-		//		theaterChase(Color(0, 0, 127), 50);		// Blue
-		//
-		//		rainbow(20);			 //彩虹
-		//		rainbowCycle(20);		 //循环
-		//		theaterChaseRainbow(50); //呼吸灯
-	}
+double HSL2RGBvalue(double n1, double n2, double hue) {
+	if (hue > 360)
+		hue -= 360;
+	else if (hue < 0)
+		hue += 360;
+	if (hue < 60)
+		return n1 + (n2 - n1) * hue / 60;
+	else if (hue < 180)
+		return n2;
+	else if (hue < 240)
+		return n1 + (n2 - n1) * (240 - hue) / 60;
+	else
+		return n1;
 }
 
 // 设置一个灯的颜色, G.R.B, 有3个字节, 共24个bit, 把这24个bit, 按G,R,B的顺序, 且每种颜色有高位到低位, 取出每一位,
 // 为0则为WS2812_0, 为1则为WS2812_1, 得出的24个WS2812编码值, 即为timer的24个输出Pulse值
 // 由此输出24个脉冲, timer的计数频率是:72Mhz / 90 = 800Khz, 则每一个脉冲间隔是1.25us, 就这样实现WS2812的脉冲调制
-void SetPixelColor(uint16_t n, Color color) {
+void SetPixelColor(uint16_t ledIndex, Color color) {
 	uint8_t tempBuffer[24];
 	uint8_t i;
 
@@ -189,7 +239,8 @@ void SetPixelColor(uint16_t n, Color color) {
 	for (i = 0; i < 8; i++) // B
 		tempBuffer[16 + i] = ((color.b << i) & 0x80) ? WS2812_1 : WS2812_0;
 
-	memcpy((void *) (RESET_SLOTS_BEGIN + n * 24), (void*) tempBuffer, 24);
+	memcpy((void *) (ColorBuffer + RESET_SLOTS_BEGIN + ledIndex * 24),
+			(void*) tempBuffer, 24);
 }
 
 void PixelUpdate() {
@@ -200,8 +251,7 @@ void PixelUpdate() {
 
 // Fill the dots one after the other with a color
 void colorWipe(Color color, uint8_t wait) {
-	uint16_t i = 0;
-	for (i = 0; i < LED_NUMBER; i++) {
+	for (uint16_t i = 0; i < LED_NUMBER; i++) {
 		SetPixelColor(i, color);
 		PixelUpdate();
 		osDelay(wait);
