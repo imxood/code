@@ -7,7 +7,7 @@
 #define TIMER_CLOCK_FREQ			(72000000)
 #define TIMER_PERIOD				(TIMER_CLOCK_FREQ / WS2812_FREQ)
 
-#define LED_NUMBER					(13)
+#define LED_NUMBER					(40)
 #define LED_DATA_SIZE				(LED_NUMBER * 24)
 #define RESET_SLOTS_BEGIN			(50)
 #define RESET_SLOTS_END				(50)
@@ -51,6 +51,9 @@ void colorWipe(Color color, uint8_t wait);
 void PixelUpdate();
 
 //uint32_t Color(uint8_t r, uint8_t g, uint8_t b);
+
+// 设置所有灯的颜色
+void allColor(Color color, uint8_t wait);
 
 Color Wheel(uint8_t WheelPos);
 

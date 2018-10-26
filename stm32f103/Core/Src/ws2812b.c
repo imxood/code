@@ -1,16 +1,14 @@
-#include "ws2812b.h"
-#include "main.h"
-#include "FreeRTOS.h"
-#include "task.h"
 #include <string.h>
 #include <math.h>
+#include "main.h"
+#include "ws2812b.h"
+#include "cmsis_os.h"
 
-#define CommandLen 5
-
-extern osSemaphoreId ledCtrlSemHandle;
+#define CommandBufferLen 256
+#define CommandLen	5
 
 volatile uint8_t ColorBuffer[LED_BUFFER_SIZE];
-volatile uint8_t CommandBuffer[CommandLen];
+volatile uint8_t CommandBuffer[CommandBufferLen];
 
 volatile uint8_t LedType = 1;
 
@@ -36,7 +34,7 @@ void ws2812_init() {
 	// 串口DMA请求: 使能dma一帧数据传输完成-中断
 	LL_DMA_SetPeriphAddress(DMA1, LL_DMA_CHANNEL_5, (uint32_t) (&USART1->DR)); // 设置外设地址
 	LL_DMA_SetMemoryAddress(DMA1, LL_DMA_CHANNEL_5, (uint32_t) CommandBuffer); // 设置DMA的数据地址
-	LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_5, CommandLen);	// 设置DMA的数据长度
+	LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_5, CommandBufferLen);	// 设置DMA的数据长度
 
 	LL_DMA_EnableChannel(DMA1, LL_DMA_CHANNEL_5);
 }
@@ -44,23 +42,22 @@ void ws2812_init() {
 void ledControlRequest(void) {
 	if (LL_USART_IsActiveFlag_IDLE(USART1)) {
 
+		LL_USART_ClearFlag_IDLE(USART1);
+
 		uint8_t len = LL_DMA_GetDataLength(DMA1, LL_DMA_CHANNEL_5);
-		if (len == 0) {
-			//
+		if (CommandBufferLen - len == CommandLen) {
 			if (CommandBuffer[0] == 0xff && CommandBuffer[1] == 0xff
 					&& CommandBuffer[3] == 0x0d && CommandBuffer[4] == 0x0a) {
-				// memcpy((void *)Command, (void *)CommandBuffer, CommandLen);
+				// memcpy((void *)Command, (void *)CommandBuffer, CommandBufferLen);
 				LedType = CommandBuffer[2];
 				cmdReceived = 1; // 接收到控制命令
 			}
+			LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_5, CommandBufferLen);
 		}
 
-		// reset the number of data to transfer
 		LL_DMA_DisableChannel(DMA1, LL_DMA_CHANNEL_5);
-		LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_5, CommandLen);
+		LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_5, CommandBufferLen);
 		LL_DMA_EnableChannel(DMA1, LL_DMA_CHANNEL_5);
-
-		LL_USART_ClearFlag_IDLE(USART1);
 	}
 }
 
@@ -68,11 +65,9 @@ void run() {
 
 	ws2812_init();
 
-	colorWipe(ToColor(255, 0, 0), 500);
+	rainbowCycle(10);
 
 	while (1) {
-		//		osSemaphoreWait(ledCtrlSemHandle, portMAX_DELAY);
-
 		if (cmdReceived == 1) {
 
 			cmdReceived = 0;
@@ -80,7 +75,7 @@ void run() {
 			switch (LedType) {
 			// 0, 白灯微闪烁  1, 白灯  2, 红灯  3, 绿灯  4, 蓝灯
 			case 0:
-				white_gradient(500);
+				white_gradient(10);
 				break;
 			case 1:
 				colorWipe(ToColor(255, 255, 255), 5);
@@ -95,21 +90,26 @@ void run() {
 				colorWipe(ToColor(0, 0, 255), 5);
 				break;
 			case 5:
+				rainbow(50);
+				break;
+			case 6:
+				rainbowCycle(20);
+				break;
+			case 7:
+				theaterChase(ToColor(0, 0, 255), 50);
 				break;
 			}
 		} else {
 			osDelay(100);
 		}
-
-		//		osSemaphoreRelease(ledCtrlSemHandle);
 	}
 }
 
 void white_gradient(uint8_t wait) {
 
-	const uint8_t DELTA_MIN = 0, DELTA_MAX = 100; // 亮度变化的范围: DELTA_MIN ~ DELTA_MAX
+	const uint8_t DELTA_MIN = 0, DELTA_MAX = 60; // 亮度变化的范围: DELTA_MIN ~ DELTA_MAX
 
-	uint8_t alpha = 100, direction = 0; // 初始亮度: 100  亮度方向: 增加
+	uint8_t alpha = 100, direction = 1; // 初始亮度: 100  亮度变化方向: 0表示变化值递减, 1表示变化值递增
 
 	uint16_t delta = 0;						// 初始亮度的变化值
 	Color colora = { 255, 255, 255, 100 };	// 初始颜色
@@ -119,20 +119,19 @@ void white_gradient(uint8_t wait) {
 		colora.a = alpha - delta;
 		color = ColorA2Color(colora);
 
-		colorWipe(color, 5);
-
-		direction ? delta-- : delta++;
+		allColor(color, wait);
 
 		if (direction) {
-			if (delta == DELTA_MAX) {
-				direction = !direction;
+			delta++;
+			if (delta >= DELTA_MAX) {
+				direction = 0;
 			}
 		} else {
-			if (delta == DELTA_MIN) {
-				direction = !direction;
+			delta--;
+			if (delta <= DELTA_MIN) {
+				direction = 1;
 			}
 		}
-		osDelay(wait);
 	}
 }
 
@@ -256,6 +255,14 @@ void colorWipe(Color color, uint8_t wait) {
 		PixelUpdate();
 		osDelay(wait);
 	}
+}
+
+void allColor(Color color, uint8_t wait) {
+	for (uint16_t i = 0; i < LED_NUMBER; i++) {
+		SetPixelColor(i, color);
+	}
+	PixelUpdate();
+	osDelay(wait);
 }
 
 Color Wheel(uint8_t WheelPos) {
