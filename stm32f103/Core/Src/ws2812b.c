@@ -1,18 +1,18 @@
 #include <string.h>
 #include <math.h>
+
+#include "cmsis_os.h"
 #include "main.h"
 #include "ws2812b.h"
-#include "cmsis_os.h"
-
-#define CommandBufferLen 256
-#define CommandLen	5
+#include "command.h"
 
 volatile uint8_t ColorBuffer[LED_BUFFER_SIZE];
-volatile uint8_t CommandBuffer[CommandBufferLen];
+
+extern uint8_t CommandBuffer[CommandMaxLen];
 
 volatile uint8_t LedType = 1;
 
-volatile uint8_t cmdReceived = 0; // 是否接收到命令
+volatile uint8_t CmdReceived = 0; // 是否接收到命令
 
 // ws2812 模块的外设使能初始化
 void ws2812_init() {
@@ -34,31 +34,19 @@ void ws2812_init() {
 	// 串口DMA请求: 使能dma一帧数据传输完成-中断
 	LL_DMA_SetPeriphAddress(DMA1, LL_DMA_CHANNEL_5, (uint32_t) (&USART1->DR)); // 设置外设地址
 	LL_DMA_SetMemoryAddress(DMA1, LL_DMA_CHANNEL_5, (uint32_t) CommandBuffer); // 设置DMA的数据地址
-	LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_5, CommandBufferLen);	// 设置DMA的数据长度
+	LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_5, CommandMaxLen);	// 设置DMA的数据长度
+
+	LL_DMA_SetPeriphAddress(DMA1, LL_DMA_CHANNEL_5, (uint32_t) (&USART1->DR)); // 设置外设地址
+	LL_DMA_SetMemoryAddress(DMA1, LL_DMA_CHANNEL_5, (uint32_t) CommandBuffer); // 设置DMA的数据地址
 
 	LL_DMA_EnableChannel(DMA1, LL_DMA_CHANNEL_5);
 }
 
-void ledControlRequest(void) {
-	if (LL_USART_IsActiveFlag_IDLE(USART1)) {
-
-		LL_USART_ClearFlag_IDLE(USART1);
-
-		uint8_t len = LL_DMA_GetDataLength(DMA1, LL_DMA_CHANNEL_5);
-		if (CommandBufferLen - len == CommandLen) {
-			if (CommandBuffer[0] == 0xff && CommandBuffer[1] == 0xff
-					&& CommandBuffer[3] == 0x0d && CommandBuffer[4] == 0x0a) {
-				// memcpy((void *)Command, (void *)CommandBuffer, CommandBufferLen);
-				LedType = CommandBuffer[2];
-				cmdReceived = 1; // 接收到控制命令
-			}
-			LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_5, CommandBufferLen);
-		}
-
-		LL_DMA_DisableChannel(DMA1, LL_DMA_CHANNEL_5);
-		LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_5, CommandBufferLen);
-		LL_DMA_EnableChannel(DMA1, LL_DMA_CHANNEL_5);
-	}
+// Need reenable after once DMA is executed
+void ws_enable() {
+	LL_DMA_DisableChannel(DMA1, LL_DMA_CHANNEL_5);
+	LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_5, CommandMaxLen);	// 设置DMA的数据长度
+	LL_DMA_EnableChannel(DMA1, LL_DMA_CHANNEL_5);
 }
 
 void run() {
@@ -68,9 +56,9 @@ void run() {
 	rainbowCycle(10);
 
 	while (1) {
-		if (cmdReceived == 1) {
+		if (CmdReceived == 1) {
 
-			cmdReceived = 0;
+			CmdReceived = 0;
 
 			switch (LedType) {
 			// 0, 白灯微闪烁  1, 白灯  2, 红灯  3, 绿灯  4, 蓝灯
@@ -115,7 +103,7 @@ void white_gradient(uint8_t wait) {
 	Color colora = { 255, 255, 255, 100 };	// 初始颜色
 	Color color;
 
-	while (!cmdReceived) { // j 控制每次亮度的范围
+	while (!CmdReceived) { // j 控制每次亮度的范围
 		colora.a = alpha - delta;
 		color = ColorA2Color(colora);
 
@@ -338,5 +326,13 @@ void theaterChaseRainbow(uint8_t wait) {
 				osDelay(wait);
 			}
 		}
+	}
+}
+
+void led_control(uint8_t* cmd, uint8_t cmdLen)
+{
+	if(cmdLen == 1){
+		CmdReceived = 0;
+		LedType = cmd[0];
 	}
 }
