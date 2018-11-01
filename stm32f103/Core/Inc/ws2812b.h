@@ -7,7 +7,7 @@
 #define TIMER_CLOCK_FREQ			(72000000)
 #define TIMER_PERIOD				(TIMER_CLOCK_FREQ / WS2812_FREQ)
 
-#define LED_NUMBER					(10)
+#define LED_NUMBER					(8)
 #define LED_DATA_SIZE				(LED_NUMBER * 24)
 #define RESET_SLOTS_BEGIN			(50)
 #define RESET_SLOTS_END				(50)

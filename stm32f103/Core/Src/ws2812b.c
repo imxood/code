@@ -332,7 +332,7 @@ void theaterChaseRainbow(uint8_t wait) {
 void led_control(uint8_t* cmd, uint8_t cmdLen)
 {
 	if(cmdLen == 1){
-		CmdReceived = 0;
+		CmdReceived = 1;
 		LedType = cmd[0];
 	}
 }

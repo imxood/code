@@ -1,5 +1,8 @@
-#include <stddef.h>
+#include <stdio.h>
+//#include <stddef.h>
+//#include <stdint.h>
 #include <command.h>
+#include <ws2812b.h>
 
 // Receive commands from the host computer
 volatile uint8_t CommandBuffer[CommandMaxLen];
@@ -10,7 +13,7 @@ volatile uint8_t CommandBuffer[CommandMaxLen];
 // Instruction: 0x01(write)
 // Length: the number of bytes of instruction and parameter
 // Parameters:
-// CheckSum: ~(Length + Instruction + Parameters)
+// CheckSum: ~(Instruction + Length + Parameters)
 
 CommandStatus check_data(uint8_t* cmd, uint8_t cmdLen) {
 
@@ -34,7 +37,7 @@ CommandStatus check_data(uint8_t* cmd, uint8_t cmdLen) {
 		for (int i = 0; i < cmd[3]; i++) {
 			checkSum += cmd[4 + i];
 		}
-		checkSum = ~checkSum;
+		checkSum = ~(checkSum + cmd[3] + cmd[2]);
 
 		if (checkSum != cmd[4 + cmd[3]]) {
 			status = CommandChecksumError;

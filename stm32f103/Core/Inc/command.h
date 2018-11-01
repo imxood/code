@@ -6,3 +6,4 @@ typedef enum _CommandStatus{
 	CommandSuccess, CommandNullError, CommandHeaderError, CommandInstructionError, CommandLengthError, CommandChecksumError
 } CommandStatus;
 
+void assign_task(uint8_t* cmd, uint8_t cmdLen);
