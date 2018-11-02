@@ -1,1 +1,0 @@
-/usr/bin/c++   -g   CMakeFiles/popen.dir/popen.cpp.o  -o popen  -L/usr/local/lib -rdynamic 

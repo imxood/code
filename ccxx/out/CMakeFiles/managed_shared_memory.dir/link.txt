@@ -1,1 +1,0 @@
-/usr/bin/c++   -g   CMakeFiles/managed_shared_memory.dir/managed_shared_memory.cpp.o  -o managed_shared_memory  -L/usr/local/lib -rdynamic -lrt -lpthread -Wl,-rpath,/usr/local/lib 

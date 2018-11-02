@@ -1,1 +1,0 @@
-/usr/bin/c++   -g   CMakeFiles/glog.dir/glog.cpp.o  -o glog  -L/usr/local/lib -rdynamic /usr/local/lib/libglog.a -lpthread -Wl,-rpath,/usr/local/lib 

@@ -1,3 +1,14 @@
 /stm32f103/*
 !/stm32f103/Core
 !/stm32f103/stm32f103.ioc
+
+
+out
+a.out
+*.class
+*.pyc
+.catkin_tools
+
+**/ros_ws/build
+**/ros_ws/devel
+**/ros_ws/logs

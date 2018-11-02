@@ -1,1 +1,0 @@
-/usr/bin/c++   -g   CMakeFiles/thread.dir/thread.cpp.o  -o thread  -L/usr/local/lib -rdynamic -lpthread -lrt -lutils -Wl,-rpath,/usr/local/lib 

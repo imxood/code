@@ -1,1 +1,0 @@
-/usr/bin/c++   -g   CMakeFiles/easylogging.dir/easylogging.cpp.o  -o easylogging  -L/usr/local/lib -rdynamic -leasyloggingpp -Wl,-rpath,/usr/local/lib 

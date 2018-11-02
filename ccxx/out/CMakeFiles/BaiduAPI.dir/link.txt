@@ -1,1 +1,0 @@
-/usr/bin/c++   -g   CMakeFiles/BaiduAPI.dir/BaiduAPI.cpp.o  -o BaiduAPI  -L/usr/local/lib -rdynamic -lboost_system /usr/local/lib/libcpprest.so.2.10 -leasyloggingpp -lpthread /usr/lib/x86_64-linux-gnu/libssl.so /usr/lib/x86_64-linux-gnu/libcrypto.so -Wl,-rpath,/usr/local/lib 
