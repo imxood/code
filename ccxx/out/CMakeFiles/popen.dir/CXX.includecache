@@ -1,0 +1,16 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/peak/develop/git/LearnMore/test/ccxx/popen.cpp
+iostream
+-
+stdio.h
+-
+unistd.h
+-
+

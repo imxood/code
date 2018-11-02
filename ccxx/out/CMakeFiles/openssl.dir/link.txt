@@ -1,0 +1,1 @@
+/usr/bin/c++   -g   CMakeFiles/openssl.dir/openssl.cpp.o  -o openssl  -L/usr/local/lib -rdynamic -lssl -lcrypto -lutils -Wl,-rpath,/usr/local/lib 

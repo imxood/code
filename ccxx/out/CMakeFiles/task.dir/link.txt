@@ -1,0 +1,1 @@
+/usr/bin/c++   -g   CMakeFiles/task.dir/task.cpp.o  -o task  -L/usr/local/lib -rdynamic -lpthread -lrt /usr/local/lib/libcpprest.so.2.10 -lutils -lpthread /usr/lib/x86_64-linux-gnu/libssl.so /usr/lib/x86_64-linux-gnu/libcrypto.so -Wl,-rpath,/usr/local/lib 

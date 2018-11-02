@@ -1,0 +1,1 @@
+/usr/bin/c++   -g   CMakeFiles/cpprestsdk.dir/cpprestsdk.cpp.o  -o cpprestsdk  -L/usr/local/lib -rdynamic /usr/local/lib/libcpprest.so.2.10 -lboost_system -lutils -lpthread /usr/lib/x86_64-linux-gnu/libssl.so /usr/lib/x86_64-linux-gnu/libcrypto.so -Wl,-rpath,/usr/local/lib 

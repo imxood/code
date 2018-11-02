@@ -1,0 +1,18 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/peak/develop/git/LearnMore/test/ccxx/managed_shared_memory.cpp
+iostream
+-
+boost/interprocess/managed_shared_memory.hpp
+-
+boost/interprocess/allocators/allocator.hpp
+-
+boost/interprocess/containers/string.hpp
+-
+

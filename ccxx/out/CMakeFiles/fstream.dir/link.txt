@@ -1,0 +1,1 @@
+/usr/bin/c++   -g   CMakeFiles/fstream.dir/fstream.cpp.o  -o fstream  -L/usr/local/lib -rdynamic -lboost_system -leasyloggingpp -Wl,-rpath,/usr/local/lib 

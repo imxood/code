@@ -1,0 +1,20 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/peak/develop/git/LearnMore/test/ccxx/interprocess/shared_memory_1.cpp
+iostream
+-
+boost/interprocess/shared_memory_object.hpp
+-
+boost/interprocess/mapped_region.hpp
+-
+boost/chrono.hpp
+-
+boost/thread/thread.hpp
+-
+

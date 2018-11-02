@@ -1,0 +1,1 @@
+/usr/bin/c++   -g   CMakeFiles/rapidjson1.dir/rapidjson1.cpp.o  -o rapidjson1  -L/usr/local/lib -rdynamic -lutils -Wl,-rpath,/usr/local/lib 
