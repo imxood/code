@@ -15,7 +15,7 @@ volatile uint8_t CommandBuffer[CommandMaxLen];
 // Parameters:
 // CheckSum: ~(Instruction + Length + Parameters)
 
-CommandStatus check_data(uint8_t* cmd, uint8_t cmdLen) {
+static CommandStatus check_data(uint8_t* cmd, uint8_t cmdLen) {
 
 	uint8_t checkSum = 0;
 	CommandStatus status = CommandSuccess;
