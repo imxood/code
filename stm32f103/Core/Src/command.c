@@ -15,6 +15,8 @@ volatile uint8_t CommandBuffer[CommandMaxLen];
 // Parameters:
 // CheckSum: ~(Instruction + Length + Parameters)
 
+// example: 0xff 0xff 0x01 0x01 0x03 0xfa
+
 CommandStatus check_data(uint8_t* cmd, uint8_t cmdLen) {
 
 	uint8_t checkSum = 0;
