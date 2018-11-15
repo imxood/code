@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdint.h>
+
 #define CommandMaxLen 256
 
 typedef enum _CommandStatus{
