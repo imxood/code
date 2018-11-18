@@ -92,6 +92,6 @@ void HSL2RGB(double h, double l, double s, Color* color);
 
 double HSL2RGBvalue(double n1, double n2, double hue);
 
-void led_control(uint8_t* cmd, uint8_t cmdLen);
+void led_control(const uint8_t* cmd, uint8_t cmdLen);
 
 #endif /* __WS2812B_H */

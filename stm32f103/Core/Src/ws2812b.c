@@ -8,11 +8,14 @@
 
 volatile uint8_t ColorBuffer[LED_BUFFER_SIZE];
 
-extern uint8_t CommandBuffer[CommandMaxLen];
+volatile uint8_t CommandReceived = 0; // 是否接收到命令
+extern uint8_t CommandBuffer[CommandMaxLen]; // 接收到的命令缓冲区
 
-volatile uint8_t LedType = 1;
+extern uint8_t CommandAcked = 1; // 已校验
+extern uint8_t AckData[32]; // 串口发送确认信息
+extern uint8_t AckDataLen[32]; // 串口发送的确认信息的长度
 
-volatile uint8_t CmdReceived = 0; // 是否接收到命令
+volatile uint8_t LedType = 1; // led的类型
 
 // ws2812 模块的外设使能初始化
 void ws2812_init() {
@@ -34,7 +37,7 @@ void ws2812_init() {
 	// 串口DMA请求: 使能dma一帧数据传输完成-中断
 	LL_DMA_SetPeriphAddress(DMA1, LL_DMA_CHANNEL_5, (uint32_t) (&USART1->DR)); // 设置外设地址
 	LL_DMA_SetMemoryAddress(DMA1, LL_DMA_CHANNEL_5, (uint32_t) CommandBuffer); // 设置DMA的数据地址
-	LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_5, CommandMaxLen);	// 设置DMA的数据长度
+	LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_5, CommandMaxLen); // 设置DMA的数据长度
 
 	LL_DMA_SetPeriphAddress(DMA1, LL_DMA_CHANNEL_5, (uint32_t) (&USART1->DR)); // 设置外设地址
 	LL_DMA_SetMemoryAddress(DMA1, LL_DMA_CHANNEL_5, (uint32_t) CommandBuffer); // 设置DMA的数据地址
@@ -45,7 +48,7 @@ void ws2812_init() {
 // Need reenable after once DMA is executed
 void ws_enable() {
 	LL_DMA_DisableChannel(DMA1, LL_DMA_CHANNEL_5);
-	LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_5, CommandMaxLen);	// 设置DMA的数据长度
+	LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_5, CommandMaxLen); // 设置DMA的数据长度
 	LL_DMA_EnableChannel(DMA1, LL_DMA_CHANNEL_5);
 }
 
@@ -53,12 +56,14 @@ void run() {
 
 	ws2812_init();
 
-	rainbowCycle(10);
+	rainbowCycle(5);
+
+	uint8_t buf[100];
 
 	while (1) {
-		if (CmdReceived == 1) {
+		if (CommandReceived == 1) {
 
-			CmdReceived = 0;
+			CommandReceived = 0;
 
 			switch (LedType) {
 			// 0, 白灯微闪烁  1, 白灯  2, 红灯  3, 绿灯  4, 蓝灯
@@ -87,6 +92,9 @@ void run() {
 				theaterChase(ToColor(0, 0, 255), 50);
 				break;
 			}
+
+		} else if (!CommandAcked) {
+			AckCommand(AckData, AckDataLen);
 		} else {
 			osDelay(100);
 		}
@@ -103,7 +111,7 @@ void white_gradient(uint8_t wait) {
 	Color colora = { 255, 255, 255, 100 };	// 初始颜色
 	Color color;
 
-	while (!CmdReceived) { // j 控制每次亮度的范围
+	while (!CommandReceived) { // j 控制每次亮度的范围
 		colora.a = alpha - delta;
 		color = ColorA2Color(colora);
 
@@ -238,6 +246,7 @@ void PixelUpdate() {
 
 // Fill the dots one after the other with a color
 void colorWipe(Color color, uint8_t wait) {
+//	static uint8_t
 	for (uint16_t i = 0; i < LED_NUMBER; i++) {
 		SetPixelColor(i, color);
 		PixelUpdate();
@@ -290,6 +299,7 @@ void rainbowCycle(uint8_t wait) {
 		PixelUpdate();
 		osDelay(wait);
 	}
+	// 经常、都觉得我在外面孤零零的，我自己都心疼，想想昨天，
 }
 //Theatre-style crawling lights.呼吸灯
 void theaterChase(Color color, uint8_t wait) {
@@ -329,10 +339,9 @@ void theaterChaseRainbow(uint8_t wait) {
 	}
 }
 
-void led_control(uint8_t* cmd, uint8_t cmdLen)
-{
-	if(cmdLen == 1){
-		CmdReceived = 1;
+void led_control(const uint8_t* cmd, uint8_t commandLen) {
+	if (commandLen == 1) {
+		CommandReceived = 1;
 		LedType = cmd[0];
 	}
 }
