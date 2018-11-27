@@ -39,14 +39,11 @@
 #include "command.h"
 #include "ws2812b.h"
 
+extern uint8_t CommandBuffer[CommandMaxLen]; // 接收到的命令缓冲区
+
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
-extern uint8_t CommandBuffer[CommandMaxLen]; // the buffer of the received command
-
-// the length of the received data
-uint8_t CommandLen = 0;
-extern uint8_t CommandReceived = 0;
 
 /******************************************************************************/
 /*            Cortex-M3 Processor Interruption and Exception Handlers         */ 
@@ -177,6 +174,7 @@ void SysTick_Handler(void)
 void DMA1_Channel4_IRQHandler(void)
 {
   /* USER CODE BEGIN DMA1_Channel4_IRQn 0 */
+	int i = 0;
 
   /* USER CODE END DMA1_Channel4_IRQn 0 */
   
@@ -191,6 +189,7 @@ void DMA1_Channel4_IRQHandler(void)
 void DMA1_Channel5_IRQHandler(void)
 {
   /* USER CODE BEGIN DMA1_Channel5_IRQn 0 */
+	int i = 0;
 
   /* USER CODE END DMA1_Channel5_IRQn 0 */
   
@@ -212,9 +211,16 @@ void USART1_IRQHandler(void)
 
 		LL_USART_ClearFlag_IDLE(USART1);
 
-		CommandLen = CommandMaxLen - LL_DMA_GetDataLength(DMA1, LL_DMA_CHANNEL_5); // The length of the received data
+		// 02 02 00 00 00 ff 00 00 00 01 ff 00 00 fe
 
-		AssignTask(CommandBuffer, CommandLen);
+		uint8_t commandLen = CommandMaxLen - LL_DMA_GetDataLength(DMA1, LL_DMA_CHANNEL_5); // The length of the received data
+
+		AssignTask(CommandBuffer, commandLen);
+
+		// 重置DMA
+		LL_DMA_DisableChannel(DMA1, LL_DMA_CHANNEL_5);
+		LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_5, CommandMaxLen); // 设置DMA的数据长度
+		LL_DMA_EnableChannel(DMA1, LL_DMA_CHANNEL_5);
 
 	}
 

@@ -1,21 +1,24 @@
+#include <stdint.h>
+
 #include <string.h>
 #include <math.h>
 
 #include "cmsis_os.h"
 #include "main.h"
+
 #include "ws2812b.h"
 #include "command.h"
 
-volatile uint8_t ColorBuffer[LED_BUFFER_SIZE];
+volatile uint8_t CommandAcked = 1; // 已确认
+
+volatile uint8_t ColorPulses[LED_BUFFER_SIZE]; //
 
 volatile uint8_t CommandReceived = 0; // 是否接收到命令
 extern uint8_t CommandBuffer[CommandMaxLen]; // 接收到的命令缓冲区
 
-extern uint8_t CommandAcked = 1; // 已校验
-extern uint8_t AckData[32]; // 串口发送确认信息
-extern uint8_t AckDataLen[32]; // 串口发送的确认信息的长度
-
 volatile uint8_t LedType = 1; // led的类型
+
+ColorCommand colorCommand = { NULL, 0, 0, 0 }; // 保存解析到的灯带控制命令     --------内部的colors是堆中内存,需要手动分配与释放
 
 // ws2812 模块的外设使能初始化
 void ws2812_init() {
@@ -26,7 +29,7 @@ void ws2812_init() {
 
 	// DMA1 Channel4
 	LL_DMA_SetPeriphAddress(DMA1, LL_DMA_CHANNEL_4, (uint32_t) (&TIM4->CCR2)); // 设置外设地址
-	LL_DMA_SetMemoryAddress(DMA1, LL_DMA_CHANNEL_4, (uint32_t) ColorBuffer); // 设置DMA的数据地址
+	LL_DMA_SetMemoryAddress(DMA1, LL_DMA_CHANNEL_4, (uint32_t) ColorPulses); // 设置DMA的数据地址
 	LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_4, LED_BUFFER_SIZE); // 设置DMA的数据长度
 
 	// USART1
@@ -39,66 +42,135 @@ void ws2812_init() {
 	LL_DMA_SetMemoryAddress(DMA1, LL_DMA_CHANNEL_5, (uint32_t) CommandBuffer); // 设置DMA的数据地址
 	LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_5, CommandMaxLen); // 设置DMA的数据长度
 
-	LL_DMA_SetPeriphAddress(DMA1, LL_DMA_CHANNEL_5, (uint32_t) (&USART1->DR)); // 设置外设地址
-	LL_DMA_SetMemoryAddress(DMA1, LL_DMA_CHANNEL_5, (uint32_t) CommandBuffer); // 设置DMA的数据地址
-
 	LL_DMA_EnableChannel(DMA1, LL_DMA_CHANNEL_5);
 }
 
-// Need reenable after once DMA is executed
-void ws_enable() {
-	LL_DMA_DisableChannel(DMA1, LL_DMA_CHANNEL_5);
-	LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_5, CommandMaxLen); // 设置DMA的数据长度
-	LL_DMA_EnableChannel(DMA1, LL_DMA_CHANNEL_5);
+void PixelUpdate() {
+	LL_DMA_DisableChannel(DMA1, LL_DMA_CHANNEL_4);
+	LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_4, LED_BUFFER_SIZE);
+	LL_DMA_EnableChannel(DMA1, LL_DMA_CHANNEL_4);
 }
 
 void run() {
 
 	ws2812_init();
 
-	rainbowCycle(5);
-
-	uint8_t buf[100];
+//	rainbowCycle(5);
 
 	while (1) {
-		if (CommandReceived == 1) {
+
+		if (!CommandAcked) { // 检测是否需要发送确认
+			SendAckData();
+		}
+
+		if (CommandReceived == 1) { // 新的控制
 
 			CommandReceived = 0;
 
-			switch (LedType) {
-			// 0, 白灯微闪烁  1, 白灯  2, 红灯  3, 绿灯  4, 蓝灯
-			case 0:
-				white_gradient(10);
-				break;
-			case 1:
-				colorWipe(ToColor(255, 255, 255), 5);
-				break;
-			case 2:
-				colorWipe(ToColor(255, 0, 0), 5);
-				break;
-			case 3:
-				colorWipe(ToColor(0, 255, 0), 5);
-				break;
-			case 4:
-				colorWipe(ToColor(0, 0, 255), 5);
-				break;
-			case 5:
-				rainbow(50);
-				break;
-			case 6:
-				rainbowCycle(20);
-				break;
-			case 7:
-				theaterChase(ToColor(0, 0, 255), 50);
-				break;
-			}
+			linearColor();
 
-		} else if (!CommandAcked) {
-			AckCommand(AckData, AckDataLen);
+//			switch (LedType) {
+//			// 0, 白灯微闪烁  1, 白灯  2, 红灯  3, 绿灯  4, 蓝灯
+//			case 0:
+//				white_gradient(10);
+//				break;
+//			case 1:
+//				colorWipe(ToColor(255, 255, 255), 5);
+//				break;
+//			case 2:
+//				colorWipe(ToColor(255, 0, 0), 5);
+//				break;
+//			case 3:
+//				colorWipe(ToColor(0, 255, 0), 5);
+//				break;
+//			case 4:
+//				colorWipe(ToColor(0, 0, 255), 5);
+//				break;
+//			case 5:
+//				rainbow(50);
+//				break;
+//			case 6:
+//				rainbowCycle(20);
+//				break;
+//			case 7:
+//				theaterChase(ToColor(0, 0, 255), 50);
+//				break;
+//			}
+
 		} else {
-			osDelay(100);
+			osDelay(50);
 		}
 	}
+}
+
+/**
+ * 控制一个周期的颜色变化
+ * colors: 颜色数组
+ * count: 颜色数组长度
+ * rate: 速度，一个周期用的时间
+ * delay: 延时，一个周期之后延时时间
+ */
+void linearColor() {
+
+	static uint8_t headPos; // 当前位置
+	static uint8_t* colorPulsesBuf = NULL; // 用于保存命令解析到的脉冲波
+	uint8_t i;
+
+	if (colorPulsesBuf) {
+		free(colorPulsesBuf);
+		colorPulsesBuf = NULL;
+	}
+
+	colorPulsesBuf = (uint8_t*) malloc(colorCommand.colorSize * 24); // 3(RGB) * 8(BIT)
+
+	// 计算要输出的脉冲信号
+	for (uint8_t j = 0; j < colorCommand.colorSize; j++) {
+
+		Color color = colorCommand.colors[j];
+
+		for (i = 0; i < 8; i++) // G
+			colorPulsesBuf[j * 24 + i] =
+					((color.g << i) & 0x80) ? WS2812_1 : WS2812_0;
+
+		for (i = 0; i < 8; i++) // R
+			colorPulsesBuf[j * 24 + 8 + i] =
+					((color.r << i) & 0x80) ? WS2812_1 : WS2812_0;
+
+		for (i = 0; i < 8; i++) // B
+			colorPulsesBuf[j * 24 + 16 + i] =
+					((color.b << i) & 0x80) ? WS2812_1 : WS2812_0;
+	}
+
+	while (!CommandReceived) { // 如果接收到新的控制信号, 就跳出循环
+
+		headPos = 0; // 灯带头部初始位置是0
+
+		while (!CommandReceived && headPos != LED_NUMBER) {
+
+			memset(ColorPulses + RESET_SLOTS_BEGIN, WS2812_RESET,
+			LED_DATA_SIZE);
+
+			PixelUpdate();
+
+			osDelay(1);
+
+			memcpy(ColorPulses + RESET_SLOTS_BEGIN + headPos * 24,
+					colorPulsesBuf, colorCommand.colorSize * 24);
+
+			PixelUpdate();
+
+			// 延时期间, DMA执行直到数据长度为0时自动关闭
+			// 灯带频率为800k, 那么灯带执行一次状态的时间为: 1/800k * LED_BUFFER_SIZE ≈ 1ms
+			osDelay(1 + colorCommand.interval);
+
+			headPos++;
+		}
+		if (!CommandReceived) {
+			osDelay(colorCommand.delay);
+		}
+	}
+
+//	memcpy((void *) (ColorPulses + RESET_SLOTS_BEGIN + i * 24), (void*) tempBuffer, 24);
 }
 
 void white_gradient(uint8_t wait) {
@@ -234,14 +306,8 @@ void SetPixelColor(uint16_t ledIndex, Color color) {
 	for (i = 0; i < 8; i++) // B
 		tempBuffer[16 + i] = ((color.b << i) & 0x80) ? WS2812_1 : WS2812_0;
 
-	memcpy((void *) (ColorBuffer + RESET_SLOTS_BEGIN + ledIndex * 24),
+	memcpy((void *) (ColorPulses + RESET_SLOTS_BEGIN + ledIndex * 24),
 			(void*) tempBuffer, 24);
-}
-
-void PixelUpdate() {
-	LL_DMA_DisableChannel(DMA1, LL_DMA_CHANNEL_4);
-	LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_4, LED_BUFFER_SIZE);
-	LL_DMA_EnableChannel(DMA1, LL_DMA_CHANNEL_4);
 }
 
 // Fill the dots one after the other with a color
@@ -299,8 +365,8 @@ void rainbowCycle(uint8_t wait) {
 		PixelUpdate();
 		osDelay(wait);
 	}
-	// 经常、都觉得我在外面孤零零的，我自己都心疼，想想昨天，
 }
+
 //Theatre-style crawling lights.呼吸灯
 void theaterChase(Color color, uint8_t wait) {
 	for (int j = 0; j < 10; j++) { //do 10 cycles of chasing
@@ -340,8 +406,27 @@ void theaterChaseRainbow(uint8_t wait) {
 }
 
 void led_control(const uint8_t* cmd, uint8_t commandLen) {
-	if (commandLen == 1) {
-		CommandReceived = 1;
-		LedType = cmd[0];
+
+	if (colorCommand.colors) {
+		free(colorCommand.colors);
 	}
+	colorCommand.colorSize = cmd[8];
+	colorCommand.colors = (uint8_t*) malloc(colorCommand.colorSize * 4);
+
+	for (int i = 0; i < colorCommand.colorSize; i++) {
+		colorCommand.colors[i].r = cmd[9 + i * 3 + 0];
+		colorCommand.colors[i].g = cmd[9 + i % 3 + 1];
+		colorCommand.colors[i].b = cmd[9 + i % 3 + 2];
+		colorCommand.colors[i].a = 100;
+	}
+
+	//memcpy(colorCommand.colors, cmd + 9, colorCommand.colorSize * 3);
+
+	colorCommand.interval = cmd[0] + (cmd[1] << 8) + (cmd[2] << 16)
+			+ (cmd[3] << 24);
+	colorCommand.delay = cmd[4] + (cmd[5] << 8) + (cmd[6] << 16)
+			+ (cmd[7] << 24);
+
+	CommandReceived = 1;
+
 }
