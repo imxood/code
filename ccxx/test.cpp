@@ -28,8 +28,6 @@ ClassA::PFunc f = &(ClassA::test1);
 
 int main(int argc, char const *argv[])
 {
-	// LogUtil log(argv[0]);
-
 	/** 测试char*转string */
 	const char *abc = "abc";
 	string buf(abc, abc + strlen(abc));
@@ -157,6 +155,10 @@ int main(int argc, char const *argv[])
 	PRINT_D(sizeof(C))
 
 	printf("\n");
+	cout << o.str () << endl;
+
+	int buf2[3];
+	printf("%p, %p, %p\n", buf2, buf2+1, buf2+2);
 
 	return 0;
 }

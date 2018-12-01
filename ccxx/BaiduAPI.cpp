@@ -3,15 +3,10 @@
 #include <cpprest/http_client.h>
 #include <cpprest/filestream.h>
 
-#include <easylogging++.h>
-#include <easylogging++.cc>
-
 #include <rapidjson/document.h>
 #include <rapidjson/prettywriter.h>
 
 #include <boost/format.hpp>
-
-INITIALIZE_EASYLOGGINGPP
 
 using namespace utility;
 using namespace web;
@@ -30,7 +25,7 @@ using namespace rapidjson;
 // #define APIKEY "Qu4leXX7Lxn6eAlRieOiUjcD"
 #define SECRETKEY "ace8829c777735a4f27b0594cd473b52"
 
-#define AUDIO_PATH "/tmp"
+#define AUDIO_PATH "."
 
 #define TTS_FILE_NUM 20
 
@@ -60,18 +55,18 @@ string_t getToken(const char *apiKey, const char *secretKey, string_t scope = "t
 
         if (v.has_field("error"))
         {
-            LOG(ERROR) << v.at("error").as_string();
-            LOG(DEBUG) << v.serialize();
+            std::cout << v.at("error").as_string() << std::endl;
+            std::cout << v.serialize() << std::endl;
         }
         else
         {
-            LOG(INFO) << "get_token success!";
+            std::cout << "get_token success!" << std::endl;
             token = v.at("access_token").as_string();
         }
     }
     catch (std::exception &e)
     {
-        LOG(ERROR) << e.what();
+        std::cout << e.what() << std::endl;
     }
     return token;
 }
@@ -122,8 +117,9 @@ void text2audio(string_t &token, string_t &inText, string_t &outAudioFile)
 
             const json::value &v = response.extract_json().get();
 
-            LOG_IF(v.has_field("err_msg"), ERROR) << v.at("err_msg").as_string();
-            LOG(DEBUG) << v.serialize();
+            if (v.has_field("err_msg"))
+                std::cout << v.at("err_msg").as_string() << std::endl;
+            std::cout << v.serialize();
 
             return 0;
         })
@@ -157,7 +153,7 @@ void audio2text(string_t &token, string_t &inAudio, string_t &outText)
 
             if (len == 0)
             {
-                LOG(ERROR) << "pcm文件读取失败~";
+                std::cout << "pcm文件读取失败~" << std::endl;
 
                 /** 取消当前任务，会标记当前任务已取消
                  * 由于基于值延续的继承其前面的任务的标记,延续也会立即进入已取消状态
@@ -186,8 +182,10 @@ void audio2text(string_t &token, string_t &inAudio, string_t &outText)
 
             const json::value &v = response.extract_json().get();
 
-            LOG_IF(v.has_field("err_msg"), ERROR) << v.at("err_msg").as_string();
-            LOG(DEBUG) << v.serialize();
+            if (v.has_field("err_msg"))
+                std::cout << v.at("err_msg").as_string() << std::endl;
+
+            std::cout << v.serialize() << std::endl;
             cancel_current_task();
         })
 
@@ -197,7 +195,7 @@ void audio2text(string_t &token, string_t &inAudio, string_t &outText)
             if (v.at("err_no").as_integer() == 0)
                 outText = v.at("result").as_array().at(0).as_string();
             else
-                LOG(ERROR) << v.at("err_msg").as_string();
+                std::cout << v.at("err_msg").as_string() << std::endl;
         })
 
         .wait();
@@ -206,36 +204,36 @@ void audio2text(string_t &token, string_t &inAudio, string_t &outText)
 int main(int argc, char **argv)
 {
 
-    // START_EASYLOGGINGPP(argc, argv);
-
-    el::Configurations conf("/home/peak/.easylogging-conf.conf");
-
-    // el::Loggers::reconfigureLogger("default", conf);
-
-    el::Loggers::reconfigureAllLoggers(conf);
+	if(argc != 2){
+		std::cout << "请输入正确的参数, 参数格式为: " << argv[0] << " pcmFilePath" << std::endl;
+		return -1;
+	}
 
     string_t token = getToken(APIKEY, SECRETKEY);
 
     if (token.size() == 0)
         return -1;
 
-    LOG(INFO) << token;
+    std::cout << token << std::endl;
 
     string_t inText = "你好撒", outAudioFile;
 
     text2audio(token, inText, outAudioFile);
 
-    LOG_IF(outAudioFile.size(), INFO) << "outAudioFile: " << outAudioFile;
+    if (outAudioFile.size())
+        std::cout << "outAudioFile: " << outAudioFile << std::endl;
 
     text2audio(token, inText, outAudioFile);
 
-    LOG_IF(outAudioFile.size(), INFO) << "outAudioFile: " << outAudioFile;
+    if (outAudioFile.size())
+        std::cout << "outAudioFile: " << outAudioFile << std::endl;
 
     string_t outText, inAudio = "/home/peak/test/speech-demo-speech-rest-api-v1.0.0-beta/rest-api-asr/linux_c/16k_test.pcm";
 
     audio2text(token, inAudio, outText);
 
-    LOG_IF(outText.size(), INFO) << "outText: " << outText.size();
+    if (outText.size())
+        std::cout << "outText: " << outText.size() << std::endl;
 
     return 0;
 }

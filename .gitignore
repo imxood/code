@@ -12,3 +12,5 @@ a.out
 **/ros_ws/build
 **/ros_ws/devel
 **/ros_ws/logs
+
+*.log

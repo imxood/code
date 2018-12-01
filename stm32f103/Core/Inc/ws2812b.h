@@ -7,7 +7,7 @@
 #define TIMER_CLOCK_FREQ			(72000000)
 #define TIMER_PERIOD				(TIMER_CLOCK_FREQ / WS2812_FREQ)
 
-#define LED_NUMBER					(8)
+#define LED_NUMBER					(6)
 #define LED_DATA_SIZE				(LED_NUMBER * 24)
 #define RESET_SLOTS_BEGIN			(50)
 #define RESET_SLOTS_END				(50)
@@ -20,20 +20,28 @@
 #define WS2812_RESET				(0)
 
 typedef struct _Color {
-	uint8_t r;
-	uint8_t g;
-	uint8_t b;
-	uint8_t a;
+	uint8_t r; // 0~255 red
+	uint8_t g; // 0~255 green
+	uint8_t b; // 0~255 blue
+	uint8_t a; // 0~100 alpha
 } Color;
+
+typedef struct _ColorCommand {
+	//colors是堆中内存,需要手动分配与释放
+	Color* colors; 			// 颜色数组, 一个color即为一个灯的颜色
+	uint8_t colorSize;		// 颜色数组长度
+	int interval;				// 速度，一个周期用的时间
+	int delay;				// 延时，一个周期之后延时时间
+} ColorCommand;
 
 // ws2812 模块的外设使能初始化
 void ws2812_init();
 
-// Need reenable after once DMA is executed
-void ws_enable();
-
 // 任务开始执行
 void run();
+
+// 颜色控制
+void linearColor();
 
 // 更新
 void WS2812_Update();
@@ -92,6 +100,6 @@ void HSL2RGB(double h, double l, double s, Color* color);
 
 double HSL2RGBvalue(double n1, double n2, double hue);
 
-void led_control(uint8_t* cmd, uint8_t cmdLen);
+void led_control(const uint8_t* cmd, uint8_t cmdLen);
 
 #endif /* __WS2812B_H */
